@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Metric, NewsItem, MarketTicker } from '../types';
+import { Metric, NewsItem, MarketTicker, Signal } from '../types';
 import { 
-  AlertCircle, 
-  CheckCircle2,
   Newspaper,
   Zap,
-  ArrowRight
+  ArrowRight,
+  TrendingUp,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertOctagon
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useApp } from '../context/AppContext';
+import { View } from '../types';
 
 const data = [
   { name: 'Mon', revenue: 4000, signals: 2 },
@@ -42,15 +47,31 @@ const INITIAL_TICKERS: MarketTicker[] = [
   { symbol: 'TATASTEEL', price: 155.00, change: 2.50 },
 ];
 
-const Dashboard: React.FC = () => {
+const Dashboard: React.FC<{ onNavigate: (view: View) => void }> = ({ onNavigate }) => {
+  const { user, signals, updateSignal } = useApp();
   const [tickers, setTickers] = useState<MarketTicker[]>(INITIAL_TICKERS);
   const [news, setNews] = useState<NewsItem[]>(INITIAL_NEWS);
+
+  // Filter for ACTIVE signals to show in the manager
+  const activeSignals = signals.filter(s => s.status === 'ACTIVE');
+  const signalsSentToday = signals.filter(s => {
+    const today = new Date().setHours(0,0,0,0);
+    return s.createdAt > today;
+  }).length;
+
   const [metrics, setMetrics] = useState<Metric[]>([
     { label: 'Today Revenue', value: '₹24,500', change: '+12%', trend: 'up' },
     { label: 'Active Subscribers', value: '1,240', change: '+5%', trend: 'up' },
-    { label: 'Signals Sent', value: '8', change: '0%', trend: 'neutral' },
+    { label: 'Signals Sent', value: signalsSentToday.toString(), change: '0%', trend: 'neutral' },
     { label: 'Avg Win Rate', value: '76%', change: '-2%', trend: 'down' },
   ]);
+
+  // Update metrics when signals change
+  useEffect(() => {
+    setMetrics(prev => prev.map(m => 
+      m.label === 'Signals Sent' ? { ...m, value: signalsSentToday.toString() } : m
+    ));
+  }, [signalsSentToday]);
 
   // Simulate Live Market Data
   useEffect(() => {
@@ -82,12 +103,22 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const handleCloseTrade = (signal: Signal, type: 'HIT' | 'STOPPED') => {
+    const exitPrice = type === 'HIT' ? signal.targets[0] : signal.stopLoss;
+    const pnl = type === 'HIT' ? (signal.targets[0] - signal.entry) : (signal.stopLoss - signal.entry);
+    updateSignal(signal.id, {
+      status: type,
+      exitPrice: exitPrice,
+      pnl: pnl
+    });
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <header className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-white">Creator Command Center</h1>
-          <p className="text-slate-400 text-sm">Welcome back, Trading Wizard.</p>
+          <p className="text-slate-400 text-sm">Welcome back, {user.name.split(' ')[0]}.</p>
         </div>
         <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
            Download Report
@@ -228,49 +259,74 @@ const Dashboard: React.FC = () => {
               <h3 className="text-lg font-bold text-white">Create Quick Signal</h3>
               <p className="text-sm text-indigo-200 mt-1">Found a setup? Publish it in 30 seconds using TradeFlow™ technology.</p>
             </div>
-            <button className="mt-6 bg-white text-indigo-900 font-bold py-2.5 rounded-lg text-sm hover:bg-indigo-50 transition-colors shadow-lg">
+            <button 
+              onClick={() => onNavigate(View.TRADE_FLOW)}
+              className="mt-6 bg-white text-indigo-900 font-bold py-2.5 rounded-lg text-sm hover:bg-indigo-50 transition-colors shadow-lg"
+            >
               Launch Composer
             </button>
          </div>
 
+         {/* Active Trade Manager */}
          <div className="md:col-span-2 bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg shadow-black/20">
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
               </span>
-              Pending Actions
+              Active Trades Manager
             </h2>
-             <div className="space-y-3">
-              <div className="flex gap-4 items-center justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-700/50 hover:border-slate-600 transition-colors">
-                <div className="flex gap-4 items-center">
-                   <div className="bg-amber-500/10 p-2 rounded-lg">
-                      <AlertCircle className="w-5 h-5 text-amber-500" />
+            
+            {activeSignals.length === 0 ? (
+               <div className="flex flex-col items-center justify-center h-32 text-slate-500 bg-slate-900/50 rounded-lg border border-slate-700/50">
+                  <Clock size={24} className="mb-2 opacity-50" />
+                  <p className="text-sm">No active trades running.</p>
+                  <button onClick={() => onNavigate(View.TRADE_FLOW)} className="text-xs text-indigo-400 mt-2 hover:underline">Start a new trade</button>
+               </div>
+            ) : (
+               <div className="space-y-3">
+                 {activeSignals.map(signal => (
+                   <div key={signal.id} className="flex flex-col md:flex-row gap-4 items-center justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-700/50 hover:border-slate-600 transition-colors">
+                      <div className="flex gap-4 items-center w-full md:w-auto">
+                         <div className={`p-2 rounded-lg ${signal.type === 'BUY' ? 'bg-emerald-500/10' : 'bg-rose-500/10'}`}>
+                            <TrendingUp className={`w-5 h-5 ${signal.type === 'BUY' ? 'text-emerald-500' : 'text-rose-500'}`} />
+                         </div>
+                         <div>
+                           <div className="flex items-center gap-2">
+                             <h4 className="text-sm font-bold text-white">{signal.symbol}</h4>
+                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${signal.type === 'BUY' ? 'bg-emerald-500 text-slate-900' : 'bg-rose-500 text-white'}`}>
+                               {signal.type}
+                             </span>
+                           </div>
+                           <p className="text-xs text-slate-400 mt-0.5">
+                             Entry: <span className="text-slate-200">{signal.entry}</span> • 
+                             Target: <span className="text-emerald-400">{signal.targets[0]}</span> • 
+                             SL: <span className="text-rose-400">{signal.stopLoss}</span>
+                           </p>
+                         </div>
+                      </div>
+                      
+                      <div className="flex gap-2 w-full md:w-auto">
+                        <button 
+                          onClick={() => handleCloseTrade(signal, 'HIT')}
+                          className="flex-1 md:flex-none text-xs bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-600/50 px-3 py-1.5 rounded transition-colors font-medium flex items-center justify-center gap-1"
+                        >
+                          <CheckCircle2 size={12} /> Target Hit
+                        </button>
+                        <button 
+                          onClick={() => handleCloseTrade(signal, 'STOPPED')}
+                          className="flex-1 md:flex-none text-xs bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-600/50 px-3 py-1.5 rounded transition-colors font-medium flex items-center justify-center gap-1"
+                        >
+                          <XCircle size={12} /> Stop Hit
+                        </button>
+                        <button className="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition-colors font-medium">
+                          Update
+                        </button>
+                      </div>
                    </div>
-                   <div>
-                     <h4 className="text-sm font-medium text-white">Approve Community Post</h4>
-                     <p className="text-xs text-slate-400">User @crypto_king posted a link to an external site.</p>
-                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <button className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded transition-colors font-medium">Approve</button>
-                  <button className="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition-colors font-medium">Reject</button>
-                </div>
-              </div>
-
-              <div className="flex gap-4 items-center justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-700/50 hover:border-slate-600 transition-colors">
-                 <div className="flex gap-4 items-center">
-                    <div className="bg-indigo-500/10 p-2 rounded-lg">
-                      <CheckCircle2 className="w-5 h-5 text-indigo-500" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-white">Verify KYC Documents</h4>
-                      <p className="text-xs text-slate-400">20 new members are waiting for approval.</p>
-                    </div>
-                 </div>
-                 <button className="text-xs border border-slate-600 hover:bg-slate-700 text-white px-3 py-1.5 rounded transition-colors font-medium">Review All</button>
-              </div>
-            </div>
+                 ))}
+               </div>
+            )}
          </div>
       </div>
     </div>

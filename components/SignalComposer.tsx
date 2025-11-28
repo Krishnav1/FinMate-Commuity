@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
 import { generateSignalDescription, generateMarketAnalysis } from '../services/geminiService';
-import { Sparkles, Send, Copy, RefreshCw, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Sparkles, Send, Copy, RefreshCw, AlertTriangle, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import { View } from '../types';
 
-const SignalComposer: React.FC = () => {
+interface SignalComposerProps {
+  onSuccess?: () => void;
+}
+
+const SignalComposer: React.FC<SignalComposerProps> = ({ onSuccess }) => {
+  const { addSignal } = useApp();
   const [form, setForm] = useState({
     symbol: '',
-    type: 'BUY',
+    type: 'BUY' as 'BUY' | 'SELL',
     entry: '',
     sl: '',
     tp1: '',
@@ -16,6 +23,7 @@ const SignalComposer: React.FC = () => {
   const [aiDescription, setAiDescription] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [analysis, setAnalysis] = useState('');
+  const [isPublished, setIsPublished] = useState(false);
 
   const handleGenerateAI = async () => {
     if (!form.symbol || !form.entry) return;
@@ -38,6 +46,51 @@ const SignalComposer: React.FC = () => {
     setAnalysis(analysisText);
     setIsGenerating(false);
   };
+
+  const handlePublish = () => {
+    if (!form.symbol || !form.entry || !form.sl) return;
+
+    const newSignal = {
+      id: `sig-${Date.now()}`,
+      symbol: form.symbol,
+      type: form.type,
+      entry: Number(form.entry),
+      stopLoss: Number(form.sl),
+      targets: [Number(form.tp1), Number(form.tp2)].filter(n => n > 0),
+      status: 'ACTIVE' as const,
+      timestamp: 'Just now',
+      createdAt: Date.now(),
+      confidence: 'High' as const,
+      notes: aiDescription
+    };
+
+    addSignal(newSignal);
+    setIsPublished(true);
+    
+    // Reset after delay or trigger navigation
+    setTimeout(() => {
+      setIsPublished(false);
+      if (onSuccess) onSuccess();
+    }, 2000);
+  };
+
+  if (isPublished) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[500px] text-center animate-in zoom-in duration-300">
+        <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6">
+          <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2">Signal Published Successfully!</h2>
+        <p className="text-slate-400">Your community has been notified on Telegram and WhatsApp.</p>
+        <button 
+          onClick={() => { setIsPublished(false); setForm({...form, symbol: ''}); }}
+          className="mt-8 bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-lg transition-colors"
+        >
+          Create Another
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in slide-in-from-bottom-4 duration-500">
@@ -141,7 +194,10 @@ const SignalComposer: React.FC = () => {
              )}
            </div>
 
-           <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-all shadow-lg shadow-indigo-500/25 flex justify-center items-center gap-2">
+           <button 
+             onClick={handlePublish}
+             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-all shadow-lg shadow-indigo-500/25 flex justify-center items-center gap-2"
+           >
              <Send size={18} />
              Publish Signal Now
            </button>

@@ -10,8 +10,10 @@ import {
   CreditCard, 
   Settings,
   LogOut,
-  Zap
+  Zap,
+  Globe
 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 interface SidebarProps {
   currentView: View;
@@ -19,6 +21,8 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
+  const { user } = useApp();
+
   const menuItems = [
     { id: View.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
     { id: View.CHART_STUDIO, label: 'Chart Studio', icon: CandlestickChart },
@@ -44,7 +48,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
           <p className="text-xs text-slate-400 uppercase font-semibold mb-1">Guru Status</p>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            <span className="text-sm font-medium text-emerald-400">SEBI Verified</span>
+            <span className="text-sm font-medium text-emerald-400">Verified</span>
+            <span className="text-[10px] text-slate-500 ml-auto">Reg: {user.sebiReg.slice(-4)}</span>
           </div>
         </div>
       </div>
@@ -73,7 +78,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
         })}
       </nav>
 
-      <div className="p-4 border-t border-slate-800">
+      <div className="p-4 space-y-2 border-t border-slate-800">
+         <button 
+           onClick={() => onChangeView(View.PUBLIC_PROFILE)}
+           className="flex items-center gap-3 text-emerald-400 hover:text-emerald-300 transition-colors w-full px-3 py-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20"
+         >
+          <Globe size={18} />
+          <span className="text-sm font-medium">My Public Page</span>
+        </button>
         <button className="flex items-center gap-3 text-slate-400 hover:text-rose-400 transition-colors w-full px-3 py-2">
           <LogOut size={18} />
           <span className="text-sm font-medium">Logout</span>

@@ -69,7 +69,12 @@ export const generateSignalDescription = async (
   }
 };
 
-export const chatWithGuruBot = async (history: { role: string, parts: { text: string }[] }[], newMessage: string): Promise<string> => {
+export const chatWithGuruBot = async (
+  history: { role: string, parts: { text: string }[] }[], 
+  newMessage: string,
+  strategyContext: string = '',
+  activeSignalsContext: string = ''
+): Promise<string> => {
   try {
     if (!process.env.API_KEY) {
        // Mock intelligent responses for demo purposes
@@ -82,6 +87,13 @@ export const chatWithGuruBot = async (history: { role: string, parts: { text: st
        }
        if (lowerMsg.includes('tweet') || lowerMsg.includes('viral')) {
          return "🔥 **Viral Tweet Idea:**\n\n'Trading is 10% buying, 10% selling, and 80% waiting. 🧘‍♂️\n\nMost traders lose money because they don't know how to sit on their hands.\n\nAgree? 👇 #TradingPsychology #StockMarket'";
+       }
+       // Context aware mock response
+       if (activeSignalsContext && (lowerMsg.includes('active') || lowerMsg.includes('trades') || lowerMsg.includes('open'))) {
+         return `You currently have the following active trades:\n\n${activeSignalsContext}\n\nBased on current market volatility, consider trailing your SL on the profitable ones.`;
+       }
+       if (strategyContext && (lowerMsg.includes('buy') || lowerMsg.includes('sell') || lowerMsg.includes('strategy'))) {
+         return `Based on your strategy rules ("${strategyContext.substring(0, 50)}..."), this setup looks valid only if volume confirms the breakout. Remember your rule about RSI ranges!`;
        }
        return "I can help you manage your community. Try asking me to 'Draft a market update', 'Handle a refund request', or 'Write a viral tweet'.";
     }
@@ -97,12 +109,15 @@ export const chatWithGuruBot = async (history: { role: string, parts: { text: st
           2. **Community Management**: Suggesting diplomatic replies to angry users or refund requests.
           3. **Engagement**: Generating poll ideas or "viral" tweet drafts about trading psychology.
           
-          Tone: Professional, authoritative, yet approachable. Use emojis where appropriate.
+          **CRITICAL - ACTIVE TRADES CONTEXT:**
+          These are the currently OPEN trades for this Guru. Use this to answer questions about "current positions" or "what to do with [Symbol]":
+          "${activeSignalsContext}"
+
+          **CRITICAL - GURU'S PRIVATE STRATEGY:**
+          The Guru has defined the following specific trading rules and strategy. You MUST use this context when answering strategy-related questions:
+          "${strategyContext}"
           
-          Context for this session:
-          - The Guru has "Pro" and "Elite" members.
-          - Current Market Sentiment: Bullish.
-          - Key Focus: Nifty 50 and BankNifty options.
+          Tone: Professional, authoritative, yet approachable. Use emojis where appropriate.
         `,
       },
       history: history,

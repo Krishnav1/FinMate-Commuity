@@ -1,7 +1,9 @@
 import React from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { Trophy, TrendingUp, TrendingDown, Calendar, ArrowUpRight, Download, Share2 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
+// Simple mock for equity since we don't have historical PnL per day in simple context
 const equityData = [
   { date: 'Jan 1', value: 100000 },
   { date: 'Jan 5', value: 102500 },
@@ -15,20 +17,41 @@ const equityData = [
   { date: 'Feb 15', value: 118000 },
 ];
 
-const instrumentData = [
-  { name: 'NIFTY', profit: 45000 },
-  { name: 'BANKNIFTY', profit: 32000 },
-  { name: 'RELIANCE', profit: 12500 },
-  { name: 'HDFCBANK', profit: -5000 },
-  { name: 'TATASTEEL', profit: 8000 },
-];
-
-const winRateData = [
-  { name: 'Wins', value: 68, color: '#10b981' },
-  { name: 'Losses', value: 32, color: '#f43f5e' },
-];
-
 const Analytics: React.FC = () => {
+  const { signals } = useApp();
+
+  // Calculate Real Stats from Signals
+  const closedSignals = signals.filter(s => s.status === 'HIT' || s.status === 'STOPPED');
+  const totalTrades = closedSignals.length;
+  const wins = closedSignals.filter(s => s.status === 'HIT').length;
+  const losses = totalTrades - wins;
+  const winRate = totalTrades > 0 ? Math.round((wins / totalTrades) * 100) : 0;
+  
+  // Calculate simulated PnL (Just for display, assuming HIT=1000, LOSS=-500)
+  const totalPnL = (wins * 1500) - (losses * 800);
+
+  const winRateData = [
+    { name: 'Wins', value: wins || 1, color: '#10b981' }, // Fallback to 1 to show chart
+    { name: 'Losses', value: losses, color: '#f43f5e' },
+  ];
+
+  // Aggregate by Instrument
+  const instrumentStats = signals.reduce((acc, curr) => {
+    const symbol = curr.symbol;
+    const currentVal = acc[symbol] ?? 0;
+    let newVal = currentVal;
+
+    if (curr.status === 'HIT') newVal += 1500;
+    if (curr.status === 'STOPPED') newVal -= 800;
+    
+    acc[symbol] = newVal;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const instrumentData = Object.entries(instrumentStats)
+    .map(([name, profit]) => ({ name, profit }))
+    .sort((a, b) => b.profit - a.profit);
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -50,14 +73,14 @@ const Analytics: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-lg">
            <div className="flex justify-between items-start mb-2">
-              <p className="text-slate-400 text-xs font-semibold uppercase">Total Profit</p>
+              <p className="text-slate-400 text-xs font-semibold uppercase">Total Profit (Est)</p>
               <div className="p-1.5 bg-emerald-500/10 rounded-lg">
                 <Trophy size={16} className="text-emerald-400" />
               </div>
            </div>
-           <h3 className="text-2xl font-bold text-white">₹1.42L</h3>
+           <h3 className="text-2xl font-bold text-white">₹{totalPnL.toLocaleString()}</h3>
            <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
-             <TrendingUp size={12} /> +12.5% this month
+             <TrendingUp size={12} /> based on closed trades
            </p>
         </div>
 
@@ -68,8 +91,8 @@ const Analytics: React.FC = () => {
                 <TrendingUp size={16} className="text-indigo-400" />
               </div>
            </div>
-           <h3 className="text-2xl font-bold text-white">68%</h3>
-           <p className="text-xs text-slate-400 mt-1">Based on 142 signals</p>
+           <h3 className="text-2xl font-bold text-white">{winRate}%</h3>
+           <p className="text-xs text-slate-400 mt-1">Based on {totalTrades} signals</p>
         </div>
 
         <div className="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-lg">
@@ -150,11 +173,11 @@ const Analytics: React.FC = () => {
               <div className="flex justify-center gap-6 text-sm">
                  <div className="flex items-center gap-2">
                    <span className="w-3 h-3 bg-emerald-500 rounded-full"></span>
-                   <span className="text-slate-300">Wins (68%)</span>
+                   <span className="text-slate-300">Wins ({winRate}%)</span>
                  </div>
                  <div className="flex items-center gap-2">
                    <span className="w-3 h-3 bg-rose-500 rounded-full"></span>
-                   <span className="text-slate-300">Losses (32%)</span>
+                   <span className="text-slate-300">Losses</span>
                  </div>
               </div>
            </div>
@@ -162,12 +185,16 @@ const Analytics: React.FC = () => {
            <div className="border-t border-slate-700 pt-6">
               <h3 className="text-sm font-bold text-white mb-3">Top Instrument Performance</h3>
               <div className="space-y-3">
-                 {instrumentData.slice(0, 3).map((item, i) => (
+                 {instrumentData.length > 0 ? instrumentData.slice(0, 3).map((item, i) => (
                    <div key={i} className="flex justify-between items-center text-sm">
                       <span className="text-slate-400">{item.name}</span>
-                      <span className="text-emerald-400 font-mono font-medium">+₹{item.profit.toLocaleString()}</span>
+                      <span className={`font-mono font-medium ${item.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {item.profit >= 0 ? '+' : ''}₹{item.profit.toLocaleString()}
+                      </span>
                    </div>
-                 ))}
+                 )) : (
+                    <p className="text-xs text-slate-500 text-center py-2">No closed trades yet.</p>
+                 )}
               </div>
            </div>
         </div>

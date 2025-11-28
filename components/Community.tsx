@@ -1,26 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Member, ChatMessage } from '../types';
 import { chatWithGuruBot } from '../services/geminiService';
-import { Search, Shield, Star, Ban, MessageSquare, Bot, Send, Sparkles, Wand2 } from 'lucide-react';
-
-const members: Member[] = [
-  { id: '1', name: 'Rahul Sharma', plan: 'Elite', joinedDate: '2023-10-01', status: 'Active' },
-  { id: '2', name: 'Priya Patel', plan: 'Pro', joinedDate: '2023-11-12', status: 'Active' },
-  { id: '3', name: 'Amit Kumar', plan: 'Free', joinedDate: '2024-01-05', status: 'Active' },
-  { id: '4', name: 'Sneha Gupta', plan: 'Pro', joinedDate: '2023-09-20', status: 'Churned' },
-  { id: '5', name: 'Vikram Singh', plan: 'Elite', joinedDate: '2024-02-14', status: 'Active' },
-];
+import { Search, Shield, Star, Ban, MessageSquare, Bot, Send, Sparkles, Wand2, TrendingUp } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 const QUICK_ACTIONS = [
   { id: '1', label: '📢 Draft Morning Update', prompt: 'Draft a professional morning market update for my community. Focus on Nifty 50 bullish trend.' },
   { id: '2', label: '🛡️ Handle Angry User', prompt: 'Write a polite and diplomatic reply to a premium member who is asking for a refund because they lost money on a trade.' },
   { id: '3', label: '🔥 Viral Tweet Idea', prompt: 'Give me 3 viral tweet ideas about trading psychology and risk management.' },
   { id: '4', label: '📊 Summarize Sentiment', prompt: 'Summarize the current market sentiment for Nifty and BankNifty in 3 bullet points.' },
+  { id: '5', label: '🧠 Ask My Strategy', prompt: 'Based on my private strategy rules, would you take a trade right now if Nifty is at all time highs?' },
+  { id: '6', label: '📈 Check Active Trades', prompt: 'Review my currently active trades. Are there any I should be worried about based on general market volatility?' },
 ];
 
 const Community: React.FC = () => {
+  const { user, members, signals } = useApp();
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: '0', role: 'model', text: "Hello Guru! I'm FinBot 🤖. I can help you manage your community, draft announcements, or handle support tickets. What can I do for you today?", timestamp: new Date() }
+    { id: '0', role: 'model', text: `Hello ${user.name}! I'm FinBot 🤖. I've studied your private strategy. How can I help you manage your community today?`, timestamp: new Date() }
   ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -54,7 +50,14 @@ const Community: React.FC = () => {
       parts: [{ text: m.text }]
     }));
 
-    const responseText = await chatWithGuruBot(history, userMsg.text);
+    // Generate Context String from Active Signals
+    const activeSignals = signals.filter(s => s.status === 'ACTIVE');
+    const activeSignalsContext = activeSignals.length > 0 
+      ? activeSignals.map(s => `${s.type} ${s.symbol} @ ${s.entry}, Target: ${s.targets[0]}, SL: ${s.stopLoss}`).join('\n')
+      : "No active trades currently.";
+
+    // Pass the Guru's private strategy AND active signals to the bot
+    const responseText = await chatWithGuruBot(history, userMsg.text, user.strategyContext, activeSignalsContext);
 
     const botMsg: ChatMessage = {
       id: (Date.now() + 1).toString(),
@@ -204,6 +207,7 @@ const Community: React.FC = () => {
                      {action.label.includes('Draft') && <Wand2 size={10} className="text-purple-400" />}
                      {action.label.includes('Handle') && <Shield size={10} className="text-amber-400" />}
                      {action.label.includes('Viral') && <Sparkles size={10} className="text-rose-400" />}
+                     {action.label.includes('Check') && <TrendingUp size={10} className="text-emerald-400" />}
                      {action.label}
                    </button>
                 ))}

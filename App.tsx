@@ -8,20 +8,29 @@ import Analytics from './components/Analytics';
 import Courses from './components/Courses';
 import Revenue from './components/Revenue';
 import Settings from './components/Settings';
+import PublicProfile from './components/PublicProfile';
 import { View } from './types';
 import { Bell, Search, UserCircle } from 'lucide-react';
+import { AppProvider, useApp } from './context/AppContext';
 
-const App: React.FC = () => {
+// Inner App Component to use Context
+const MainApp: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
+  const { user } = useApp();
+
+  // Special Route for Public Profile (Full Screen)
+  if (currentView === View.PUBLIC_PROFILE) {
+    return <PublicProfile onBack={() => setCurrentView(View.DASHBOARD)} />;
+  }
 
   const renderView = () => {
     switch (currentView) {
       case View.DASHBOARD:
-        return <Dashboard />;
+        return <Dashboard onNavigate={setCurrentView} />;
       case View.CHART_STUDIO:
         return <ChartStudio />;
       case View.TRADE_FLOW:
-        return <SignalComposer />;
+        return <SignalComposer onSuccess={() => setCurrentView(View.DASHBOARD)} />;
       case View.COMMUNITY:
         return <Community />;
       case View.ANALYTICS:
@@ -33,7 +42,7 @@ const App: React.FC = () => {
       case View.SETTINGS:
         return <Settings />;
       default:
-        return <Dashboard />;
+        return <Dashboard onNavigate={setCurrentView} />;
     }
   };
 
@@ -62,7 +71,7 @@ const App: React.FC = () => {
              </button>
              <div className="flex items-center gap-3 border-l border-slate-800 pl-6">
                 <div className="text-right hidden md:block">
-                  <p className="text-sm font-medium text-white">Alex Trader</p>
+                  <p className="text-sm font-medium text-white">{user.name}</p>
                   <p className="text-[10px] text-slate-400">Pro Plan • Expires in 12d</p>
                 </div>
                 <button className="w-9 h-9 bg-indigo-600 rounded-full flex items-center justify-center text-white">
@@ -78,6 +87,14 @@ const App: React.FC = () => {
         </div>
       </main>
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AppProvider>
+      <MainApp />
+    </AppProvider>
   );
 };
 
