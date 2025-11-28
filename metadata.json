@@ -1,0 +1,7 @@
+{
+  "name": "FinMate Guru Dashboard",
+  "description": "The ultimate command center for financial influencers to manage signals, community, and revenue.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
