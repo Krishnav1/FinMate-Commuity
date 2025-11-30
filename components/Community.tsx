@@ -1,22 +1,23 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Member, ChatMessage } from '../types';
 import { chatWithGuruBot } from '../services/geminiService';
-import { Search, Shield, Star, Ban, MessageSquare, Bot, Send, Sparkles, Wand2, TrendingUp } from 'lucide-react';
+import { Search, Shield, Star, Ban, MessageSquare, Bot, Send, Sparkles, Wand2, TrendingUp, AlertTriangle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const QUICK_ACTIONS = [
-  { id: '1', label: '📢 Draft Morning Update', prompt: 'Draft a professional morning market update for my community. Focus on Nifty 50 bullish trend.' },
-  { id: '2', label: '🛡️ Handle Angry User', prompt: 'Write a polite and diplomatic reply to a premium member who is asking for a refund because they lost money on a trade.' },
-  { id: '3', label: '🔥 Viral Tweet Idea', prompt: 'Give me 3 viral tweet ideas about trading psychology and risk management.' },
-  { id: '4', label: '📊 Summarize Sentiment', prompt: 'Summarize the current market sentiment for Nifty and BankNifty in 3 bullet points.' },
-  { id: '5', label: '🧠 Ask My Strategy', prompt: 'Based on my private strategy rules, would you take a trade right now if Nifty is at all time highs?' },
-  { id: '6', label: '📈 Check Active Trades', prompt: 'Review my currently active trades. Are there any I should be worried about based on general market volatility?' },
+  { id: '1', label: '📢 Morning Update', prompt: 'Draft a professional pre-market analysis for Nifty and BankNifty. Support is at 22000.' },
+  { id: '2', label: '📅 EOD Summary', prompt: 'Summarize today\'s market movement. Nifty was volatile but closed green. BankNifty weak.' },
+  { id: '3', label: '📉 Reply: Missed Entry', prompt: 'A user asked "I missed the entry at 22400, can I enter now at 22450?". Write a reply based on my "No Chasing" rule.' },
+  { id: '4', label: '🛑 Reply: SL Hit', prompt: 'Users are panicking because the Stop Loss hit on the last trade. Write a reassuring message about probability.' },
+  { id: '5', label: '🛡️ Handle Refund', prompt: 'Write a polite refusal for a refund request citing our T&C, but offer a free extension.' },
+  { id: '6', label: '🔥 Viral Tweet', prompt: 'Write a controversial tweet about why indicators don\'t work, only price action does.' },
 ];
 
 const Community: React.FC = () => {
   const { user, members, signals } = useApp();
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: '0', role: 'model', text: `Hello ${user.name}! I'm FinBot 🤖. I've studied your private strategy. How can I help you manage your community today?`, timestamp: new Date() }
+    { id: '0', role: 'model', text: `Hello ${user.name}! I'm ${user.botConfig?.name || 'FinBot'} 🤖. I've analyzed your private strategy context. I can help you draft announcements or reply to members.`, timestamp: new Date() }
   ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -56,8 +57,8 @@ const Community: React.FC = () => {
       ? activeSignals.map(s => `${s.type} ${s.symbol} @ ${s.entry}, Target: ${s.targets[0]}, SL: ${s.stopLoss}`).join('\n')
       : "No active trades currently.";
 
-    // Pass the Guru's private strategy AND active signals to the bot
-    const responseText = await chatWithGuruBot(history, userMsg.text, user.strategyContext, activeSignalsContext);
+    // Pass the Guru's private strategy AND active signals AND Bot Config to the bot
+    const responseText = await chatWithGuruBot(history, userMsg.text, user.strategyContext, activeSignalsContext, user.botConfig);
 
     const botMsg: ChatMessage = {
       id: (Date.now() + 1).toString(),
@@ -156,11 +157,11 @@ const Community: React.FC = () => {
        {/* Right: Guru AI Assistant */}
        <div className="w-[400px] flex flex-col bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-xl shadow-black/30">
           <div className="p-4 bg-slate-900 border-b border-slate-700 flex items-center gap-3">
-             <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-600/20">
-               <Bot className="text-white w-6 h-6" />
+             <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-600/20 text-white font-bold">
+               {user.botConfig?.name?.substring(0,2).toUpperCase() || <Bot className="text-white w-6 h-6" />}
              </div>
              <div>
-               <h3 className="font-bold text-white text-sm">Guru Assistant</h3>
+               <h3 className="font-bold text-white text-sm">{user.botConfig?.name || 'Guru Assistant'}</h3>
                <p className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium">
                  <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -208,6 +209,8 @@ const Community: React.FC = () => {
                      {action.label.includes('Handle') && <Shield size={10} className="text-amber-400" />}
                      {action.label.includes('Viral') && <Sparkles size={10} className="text-rose-400" />}
                      {action.label.includes('Check') && <TrendingUp size={10} className="text-emerald-400" />}
+                     {action.label.includes('Reply') && <MessageSquare size={10} className="text-indigo-400" />}
+                     {action.label.includes('EOD') && <AlertTriangle size={10} className="text-blue-400" />}
                      {action.label}
                    </button>
                 ))}
@@ -219,7 +222,7 @@ const Community: React.FC = () => {
                  value={inputText}
                  onChange={(e) => setInputText(e.target.value)}
                  onKeyDown={handleKeyPress}
-                 placeholder="Ask FinBot anything..."
+                 placeholder={`Ask ${user.botConfig?.name || 'FinBot'} anything...`}
                  className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-4 pr-10 py-3 text-sm text-white focus:ring-2 focus:ring-indigo-500 outline-none placeholder:text-slate-500 shadow-inner"
                />
                <button 
